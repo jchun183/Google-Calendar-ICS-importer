@@ -13,19 +13,29 @@ from googleapiclient.discovery import build
 # ---------------- CONFIG ----------------
 SCOPES = ["https://www.googleapis.com/auth/calendar"]
 CALENDAR_ID = "primary"
-
-BASE_DIR = Path(__file__).resolve().parent
-
-CLIENT_SECRET_FILE = BASE_DIR / "credentials.json"
-TOKEN_FILE = BASE_DIR / "token.json"
 # ----------------------------------------
+
+
+# ✅ Handle PyInstaller paths
+def resource_path(relative_path):
+    if hasattr(sys, "_MEIPASS"):
+        return Path(sys._MEIPASS) / relative_path
+    return Path(__file__).resolve().parent / relative_path
+
+
+# ✅ Store token in a persistent user location
+APP_DATA_DIR = Path.home() / "AppData" / "Local" / "CalendarImporter"
+APP_DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+CLIENT_SECRET_FILE = resource_path("credentials.json")
+TOKEN_FILE = APP_DATA_DIR / "token.json"
 
 
 def get_calendar_service():
     creds = None
 
-    if os.path.exists(TOKEN_FILE):
-       creds = Credentials.from_authorized_user_file(str(TOKEN_FILE), SCOPES)
+    if TOKEN_FILE.exists():
+        creds = Credentials.from_authorized_user_file(str(TOKEN_FILE), SCOPES)
 
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
@@ -83,7 +93,6 @@ def parse_ics_file(file_path: Path):
             "iCalUID": uid,
         }
 
-        # fallback end time if missing
         if event["end"] is None:
             if isinstance(dtstart, datetime):
                 fallback = dtstart if dtstart.tzinfo else dtstart.replace(tzinfo=timezone.utc)
